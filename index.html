@@ -91,10 +91,6 @@
           <label for="explainToggle">Show explanation after answering</label>
         </div>
 
-        <div class="tog tiny">
-          <input type="checkbox" id="overlapToggle" />
-          <label for="overlapToggle"><b>Overlapping triangles</b> (harder)</label>
-        </div>
       </div>
     </div>
   </div>
@@ -110,7 +106,6 @@ const modePill = document.getElementById("modePill");
 const nextBtn = document.getElementById("nextBtn");
 const resetBtn = document.getElementById("resetBtn");
 const explainToggle = document.getElementById("explainToggle");
-const overlapToggle = document.getElementById("overlapToggle");
 
 let score = 0, total = 0, current = null, answered = false;
 let currentStreak = 0, highestStreak = 0;
@@ -242,55 +237,6 @@ function inBounds(p, padding = 60) {
 }
 
 // Helper function to create congruent triangle for shared side
-function createCongruentTriangle(A, B, C, overlap = false) {
-  // Create triangle ABD that is congruent to ABC
-  const AB = distance(A, B);
-  const AC = distance(A, C);
-  const BC = distance(B, C);
-
-  // Calculate angle at A in triangle ABC
-  const angleA = Math.acos(
-    clamp((AC*AC + AB*AB - BC*BC) / (2 * AC * AB), -1, 1)
-  );
-
-  // For non-overlapping, put D on opposite side of AB
-  // For overlapping, put D on same side but shifted
-  const angleOffset = overlap ? (Math.PI / 6) * (Math.random() < 0.5 ? 1 : -1) : Math.PI;
-
-  // Create point D such that AD = AC and BD = BC
-  // This ensures triangle ABD ≅ triangle ABC by SSS
-  const angleAB = Math.atan2(B.y - A.y, B.x - A.x);
-  const angleFromA = angleAB + (Math.random() < 0.5 ? angleA : -angleA) + angleOffset;
-
-  const D = {
-    x: A.x + AC * Math.cos(angleFromA),
-    y: A.y + AC * Math.sin(angleFromA)
-  };
-
-  // Verify BD ≈ BC (it should be very close due to geometry)
-  const BD = distance(B, D);
-  const tolerance = Math.max(AB, AC, BC) * 0.05; // 5% tolerance
-
-  if (Math.abs(BD - BC) > tolerance) {
-    // Adjust D to make BD = BC
-    const angleFromB = Math.atan2(D.y - B.y, D.x - B.x);
-    D.x = B.x + BC * Math.cos(angleFromB);
-    D.y = B.y + BC * Math.sin(angleFromB);
-  }
-
-  // Ensure D is within bounds
-  if (!inBounds(D)) {
-    // If D is out of bounds, reflect C across AB
-    const v = vec(A, C);
-    const n = norm(perp(vec(A, B)));
-    const dotProduct = dot(v, n);
-    D.x = C.x - 2 * dotProduct * n.x;
-    D.y = C.y - 2 * dotProduct * n.y;
-  }
-
-  return D;
-}
-
 /* --------------------- Markings --------------------- */
 function markSideTicks(p, q, tickCount=1, opts={}, parent=svg) {
   const g = group({}, parent);
@@ -452,63 +398,6 @@ function scenarioSharedSideNoOverlap() {
       sharedEdge: [0, 1],
       parallel: hasParallel && parallelSides !== null,
       parallelSides: parallelSides
-    }
-  };
-}
-
-function scenarioSharedSideOverlap() {
-  const padding = 80;
-  const minX = padding, maxX = 1000 - padding, minY = padding, maxY = 520 - padding;
-
-  const A = {x: rnd(minX + 150, minX + 250), y: rnd(minY + 180, maxY - 180)};
-  const B = {x: rnd(maxX - 250, maxX - 150), y: A.y + rnd(-30, 30)};
-
-  let C;
-  for (let attempts = 0; attempts < 50; attempts++) {
-    C = {x: rnd(A.x + 50, B.x - 50), y: rnd(minY + 100, maxY - 100)};
-    const triangle = [A, B, C];
-    if (isTriangleReadable(triangle) &&
-        distance(A, C) > 80 &&
-        distance(B, C) > 80) {
-      break;
-    }
-  }
-
-  if (!C) {
-    C = {x: (A.x + B.x) / 2, y: A.y - 120};
-  }
-
-  // Create D such that triangle ABD ≅ triangle ABC with overlap
-  const D = createCongruentTriangle(A, B, C, true);
-
-  // For overlap, ensure D is on the same side of AB as C but shifted
-  const centroid1 = centroid([A, B, C]);
-  const centroid2 = centroid([A, B, D]);
-  const separation = distance(centroid1, centroid2);
-
-  // Ensure some overlap but not complete overlap
-  if (separation > 200 || separation < 30) {
-    // Adjust D to be closer to C but not identical (NOTE: this can slightly disturb congruence visually;
-    // our generator will now refuse any "lying" congruence marks anyway.)
-    const factor = 0.3 + Math.random() * 0.4; // 0.3 to 0.7
-    D.x = C.x * factor + D.x * (1 - factor);
-    D.y = C.y * factor + D.y * (1 - factor);
-  }
-
-  const tri1 = [A, B, C];
-  const tri2 = [A, B, D];
-
-  const hasParallel = Math.random() < 0.75;
-
-  return {
-    tri1: tri1,
-    tri2: tri2,
-    extras: {
-      type: "shared",
-      overlap: true,
-      sharedEdge: [0, 1],
-      parallel: hasParallel,
-      parallelSides: hasParallel ? [[A, C], [B, D]] : null
     }
   };
 }
@@ -944,8 +833,6 @@ function computeValidAnswers(sc, marks, map2){
 function makeProblem() {
   // Try multiple times to avoid “lying” congruence marks.
   for (let attempt = 0; attempt < 40; attempt++) {
-    const allowOverlap = overlapToggle.checked;
-
     const sceneType = pick(["shared", "vertical", "separate", "right", "shared", "vertical", "separate"]);
 
     let sc;
@@ -954,9 +841,7 @@ function makeProblem() {
         ? scenarioRightTrianglesShared()
         : scenarioRightTrianglesSeparate();
     } else if (sceneType === "shared") {
-      sc = allowOverlap && Math.random() < 0.5
-        ? scenarioSharedSideOverlap()
-        : scenarioSharedSideNoOverlap();
+      sc = scenarioSharedSideNoOverlap();
     } else if (sceneType === "vertical") {
       sc = scenarioVerticalAngles();
     } else {
@@ -1343,7 +1228,6 @@ function resetScore() {
 renderChoices();
 nextBtn.addEventListener("click", nextProblem);
 resetBtn.addEventListener("click", resetScore);
-overlapToggle.addEventListener("change", ()=> { nextProblem(); });
 
 /* --------------------- Start --------------------- */
 nextProblem();
