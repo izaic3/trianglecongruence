@@ -1,0 +1,1279 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Triangle Congruence Practice</title>
+  <style>
+    :root { --bg:#0b1220; --ink:#e8eefc; --muted:#9fb0d1; --accent:#7aa2ff; --good:#43d19e; --bad:#ff6b6b; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 1200px at 50% 50%, #15244a 0%, var(--bg) 100%); color:var(--ink); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px; display:grid; gap:14px; }
+    header { display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; justify-content:space-between; }
+    h1 { font-size: 20px; margin:0; letter-spacing:.2px; }
+    .sub { color:var(--muted); font-size: 14px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.10); border-radius: 16px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .grid { display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; }
+    @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
+    .svgbox { display:flex; justify-content:center; align-items:center; padding: 10px; border-radius: 14px;
+      background: rgba(0,0,0,.20); border:1px solid rgba(255,255,255,.08); }
+    .controls { display:grid; gap:10px; }
+    .btnrow { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+    @media (max-width: 420px){ .btnrow{ grid-template-columns: 1fr; } }
+    button {
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--ink);
+      padding: 12px 12px;
+      border-radius: 14px;
+      font-weight: 650;
+      cursor:pointer;
+      transition: transform .04s ease, background .15s ease, border-color .15s ease;
+      user-select:none;
+    }
+    button:hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.22); }
+    button:active { transform: translateY(1px); }
+    button[disabled]{ opacity:.6; cursor:not-allowed; }
+    .pillrow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .pill { padding: 8px 10px; border-radius: 999px; background: rgba(122,162,255,.14);
+      border: 1px solid rgba(122,162,255,.22); color: var(--ink); font-weight:650; }
+    .pill.muted { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); color: var(--muted); }
+    /* Hide the "Scene" UI label (keep the experience student-facing). */
+    #modePill { display: none; }
+    .feedback { padding: 10px 12px; border-radius: 14px; border:1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.18); }
+    .feedback.good { border-color: rgba(67,209,158,.35); background: rgba(67,209,158,.10); }
+    .feedback.bad { border-color: rgba(255,107,107,.35); background: rgba(255,107,107,.10); }
+    .tiny { font-size: 12px; color: var(--muted); line-height: 1.3; }
+    .tog { display:flex; align-items:center; gap:10px; }
+    .tog input { transform: scale(1.15); }
+    .hr { height:1px; background: rgba(255,255,255,.10); margin: 10px 0; border-radius:999px; }
+
+    #modePill{display:none !important;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Triangle Congruence Practice</h1>
+        <div class="sub">Choose the relationship that proves △1 ≅ △2 (or <b>Can't Prove</b>).</div>
+      </div>
+      <div class="pillrow">
+        <div class="pill" id="scorePill">Score: 0/0 (0%)</div>
+        <div class="pill" id="streakPill">Streak: 0 (Best: 0)</div>
+        <div class="pill muted" id="modePill">Scene: —</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="svgbox">
+          <svg id="scene" viewBox="0 0 1000 520" width="100%" height="auto"></svg>
+        </div>
+      </div>
+
+      <div class="card controls">
+        <div class="feedback" id="feedbackBox">
+          <div style="font-weight:850; margin-bottom:6px;">Pick an answer:</div>
+          <div class="tiny">Look at the diagram and select the congruence relationship (or <b>Can't Prove</b>).</div>
+        </div>
+
+        <div class="btnrow" id="choices"></div>
+
+        <div class="pillrow">
+          <button id="nextBtn">Next Problem</button>
+          <button id="resetBtn">Reset Score</button>
+        </div>
+
+        <div class="tog tiny">
+          <input type="checkbox" id="explainToggle" checked />
+          <label for="explainToggle">Show explanation after answering</label>
+        </div>
+
+        <div class="tog tiny">
+          <input type="checkbox" id="overlapToggle" />
+          <label for="overlapToggle"><b>Overlapping triangles</b> (harder)</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const CHOICES = ["SSS","SAS","ASA","AAS","HL","Can't Prove"];
+const svg = document.getElementById("scene");
+const choicesDiv = document.getElementById("choices");
+const feedbackBox = document.getElementById("feedbackBox");
+const scorePill = document.getElementById("scorePill");
+const streakPill = document.getElementById("streakPill");
+const modePill = document.getElementById("modePill");
+const nextBtn = document.getElementById("nextBtn");
+const resetBtn = document.getElementById("resetBtn");
+const explainToggle = document.getElementById("explainToggle");
+const overlapToggle = document.getElementById("overlapToggle");
+
+let score = 0, total = 0, current = null, answered = false;
+let currentStreak = 0, highestStreak = 0;
+
+const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+const rnd = (a,b)=> a + Math.random()*(b-a);
+
+function clearSVG(){ while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function el(name, attrs={}, parent=svg) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", name);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent.appendChild(e);
+  return e;
+}
+function group(attrs={}, parent=svg){ return el("g", attrs, parent); }
+function text(x,y,str, opts={}, parent=svg) {
+  const t = el("text", {
+    x, y, fill: opts.fill ?? "#e8eefc",
+    "font-size": opts.size ?? 18,
+    "font-weight": opts.weight ?? 800,
+    "text-anchor": opts.anchor ?? "middle",
+    "dominant-baseline": opts.baseline ?? "middle",
+    opacity: opts.opacity ?? 1
+  }, parent);
+  t.appendChild(document.createTextNode(str));
+  return t;
+}
+function line(p,q, opts={}, parent=svg) {
+  return el("line", {
+    x1:p.x, y1:p.y, x2:q.x, y2:q.y,
+    stroke: opts.stroke ?? "#e8eefc",
+    "stroke-width": opts.w ?? 4,
+    "stroke-linecap": "round",
+    opacity: opts.opacity ?? 1
+  }, parent);
+}
+function poly(points, opts={}, parent=svg) {
+  const pts = points.map(p=>`${p.x},${p.y}`).join(" ");
+  return el("polygon", {
+    points: pts,
+    fill: opts.fill ?? "rgba(122,162,255,.12)",
+    stroke: opts.stroke ?? "#e8eefc",
+    "stroke-width": opts.w ?? 4,
+    "stroke-linejoin":"round",
+    opacity: opts.opacity ?? 1
+  }, parent);
+}
+function vec(a,b){ return {x:b.x-a.x, y:b.y-a.y}; }
+function add(a,b){ return {x:a.x+b.x, y:a.y+b.y}; }
+function sub(a,b){ return {x:a.x-b.x, y:a.y-b.y}; }
+function mul(a,s){ return {x:a.x*s, y:a.y*s}; }
+function len(v){ return Math.hypot(v.x,v.y); }
+function dot(a,b){ return a.x*b.x + a.y*b.y; }
+function norm(v){ const L=len(v)||1; return {x:v.x/L, y:v.y/L}; }
+function perp(v){ return {x:-v.y, y:v.x}; }
+function reflectPointAcrossLine(P, A, B){
+  // Reflect point P across the infinite line through A->B.
+  const AB = sub(B, A);
+  const ap = sub(P, A);
+  const u = norm(AB);
+  const projLen = dot(ap, u);
+  const proj = add(A, mul(u, projLen));
+  // P' = 2*proj - P
+  return sub(mul(proj, 2), P);
+}
+function centroid(tri){
+  return { x:(tri[0].x+tri[1].x+tri[2].x)/3, y:(tri[0].y+tri[1].y+tri[2].y)/3 };
+}
+function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+function distance(p1, p2) { return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
+
+function angleAt(A,B,C){
+  const BA = sub(A,B), BC = sub(C,B);
+  const cos = clamp(dot(BA,BC) / ((len(BA)||1)*(len(BC)||1)), -1, 1);
+  return Math.acos(cos) * 180 / Math.PI;
+}
+function triangleAngles(T){
+  const [A,B,C]=T;
+  return [ angleAt(B,A,C), angleAt(A,B,C), angleAt(A,C,B) ];
+}
+function isTriangleReadable(T){
+  const ang = triangleAngles(T);
+  const maxA = Math.max(...ang);
+  const minA = Math.min(...ang);
+  // Keep triangles readable: prevent tiny angles that make arc marks hard to see.
+  // (Also keeps the "skinny" look from happening.)
+  return maxA <= 120 && minA >= 35;
+}
+
+// Create a reasonably large, readable triangle inside a rectangle.
+// Enforces: max angle ≤ 120° (per isTriangleReadable) and minimum side length.
+function randomReadableTriangle(xMin, xMax, yMin, yMax, minSide=140) {
+  for (let k = 0; k < 250; k++) {
+    const A = {x: rnd(xMin, xMax), y: rnd(yMin, yMax)};
+    const B = {x: rnd(xMin, xMax), y: rnd(yMin, yMax)};
+    const C = {x: rnd(xMin, xMax), y: rnd(yMin, yMax)};
+    const T = [A,B,C];
+    // Avoid near-collinear / tiny triangles
+    const a = distance(B,C), b = distance(A,C), c = distance(A,B);
+    const minLen = Math.min(a,b,c);
+    if (minLen < minSide) continue;
+    // Ensure all vertices are comfortably in bounds
+    if (!inBounds(A, 70) || !inBounds(B, 70) || !inBounds(C, 70)) continue;
+    if (!isTriangleReadable(T)) continue;
+    return T;
+  }
+  // Fallback: a big, guaranteed-readable triangle
+  return [
+    {x: xMin + 60, y: yMax - 40},
+    {x: xMax - 60, y: yMax - 40},
+    {x: xMin + 90, y: yMin + 50}
+  ];
+}
+
+function rotateAround(p, center, angRad) {
+  const dx = p.x - center.x;
+  const dy = p.y - center.y;
+  const ca = Math.cos(angRad), sa = Math.sin(angRad);
+  return { x: center.x + dx*ca - dy*sa, y: center.y + dx*sa + dy*ca };
+}
+
+function translateTri(T, dx, dy) {
+  return T.map(p => ({x: p.x + dx, y: p.y + dy}));
+}
+
+// Helper function to check if point is within canvas bounds
+function inBounds(p, padding = 60) {
+  return p.x >= padding && p.x <= 1000 - padding && p.y >= padding && p.y <= 520 - padding;
+}
+
+// Helper function to create congruent triangle for shared side
+function createCongruentTriangle(A, B, C, overlap = false) {
+  // Create triangle ABD that is congruent to ABC
+  const AB = distance(A, B);
+  const AC = distance(A, C);
+  const BC = distance(B, C);
+
+  // Calculate angle at A in triangle ABC
+  const angleA = Math.acos(
+    clamp((AC*AC + AB*AB - BC*BC) / (2 * AC * AB), -1, 1)
+  );
+
+  // For non-overlapping, put D on opposite side of AB
+  // For overlapping, put D on same side but shifted
+  const angleOffset = overlap ? (Math.PI / 6) * (Math.random() < 0.5 ? 1 : -1) : Math.PI;
+
+  // Create point D such that AD = AC and BD = BC
+  // This ensures triangle ABD ≅ triangle ABC by SSS
+  const angleAB = Math.atan2(B.y - A.y, B.x - A.x);
+  const angleFromA = angleAB + (Math.random() < 0.5 ? angleA : -angleA) + angleOffset;
+
+  const D = {
+    x: A.x + AC * Math.cos(angleFromA),
+    y: A.y + AC * Math.sin(angleFromA)
+  };
+
+  // Verify BD ≈ BC (it should be very close due to geometry)
+  const BD = distance(B, D);
+  const tolerance = Math.max(AB, AC, BC) * 0.05; // 5% tolerance
+
+  if (Math.abs(BD - BC) > tolerance) {
+    // Adjust D to make BD = BC
+    const angleFromB = Math.atan2(D.y - B.y, D.x - B.x);
+    D.x = B.x + BC * Math.cos(angleFromB);
+    D.y = B.y + BC * Math.sin(angleFromB);
+  }
+
+  // Ensure D is within bounds
+  if (!inBounds(D)) {
+    // If D is out of bounds, reflect C across AB
+    const v = vec(A, C);
+    const n = norm(perp(vec(A, B)));
+    const dotProduct = dot(v, n);
+    D.x = C.x - 2 * dotProduct * n.x;
+    D.y = C.y - 2 * dotProduct * n.y;
+  }
+
+  return D;
+}
+
+/* --------------------- Markings --------------------- */
+function markSideTicks(p, q, tickCount=1, opts={}, parent=svg) {
+  const g = group({}, parent);
+  const v = vec(p,q);
+  const mid = add(p, mul(v, 0.5));
+  const n = norm(perp(v));
+  const along = norm(v);
+  const spacing = 12;
+  const tickLen = opts.tickLen ?? 18;
+
+  const offsets = [];
+  if (tickCount === 1) offsets.push(0);
+  if (tickCount === 2) offsets.push(-spacing/2, spacing/2);
+  if (tickCount === 3) offsets.push(-spacing, 0, spacing);
+
+  for (const off of offsets) {
+    const center = add(mid, mul(along, off));
+    const a = add(center, mul(n, -tickLen/2));
+    const b = add(center, mul(n, tickLen/2));
+    line(a,b,{ w: 4 }, g);
+  }
+  return g;
+}
+function markAngleArc(V, A, B, arcCount=1, opts={}, parent=svg) {
+  const g = group({}, parent);
+  const r = opts.r ?? 38;
+  const v1 = norm(vec(V, A));
+  const v2 = norm(vec(V, B));
+  const bis = norm(add(v1, v2));
+
+  function oneArc(R) {
+    const a = add(V, mul(v1, R));
+    const b = add(V, mul(v2, R));
+    const c = add(V, mul(bis, R*1.18));
+    const d = `M ${a.x} ${a.y} Q ${c.x} ${c.y} ${b.x} ${b.y}`;
+    return el("path", {
+      d, fill:"none", stroke:"#e8eefc",
+      "stroke-width": 6, "stroke-linecap":"round"
+    }, g);
+  }
+  const gap = 12;
+  if (arcCount === 1) oneArc(r);
+  if (arcCount === 2) { oneArc(r); oneArc(r+gap); }
+  if (arcCount === 3) { oneArc(r); oneArc(r+gap); oneArc(r+2*gap); }
+  return g;
+}
+function markRightAngle(V, A, B, opts={}, parent=svg) {
+  const g = group({}, parent);
+  const size = opts.size ?? 30;
+  const v1 = norm(vec(V,A));
+  const v2 = norm(vec(V,B));
+  const p = add(V, mul(v1, size));
+  const q = add(V, mul(v2, size));
+  const r = add(p, mul(v2, size));
+  el("path", {
+    d: `M ${p.x} ${p.y} L ${r.x} ${r.y} L ${q.x} ${q.y}`,
+    fill:"none", stroke:"#e8eefc", "stroke-width": 5,
+    "stroke-linecap":"round", "stroke-linejoin":"round"
+  }, g);
+  return g;
+}
+function markParallelLines(p, q, opts={}, parent=svg) {
+  const g = group({}, parent);
+  const v = vec(p, q);
+  const along = norm(v);
+  const perpVec = perp(along);
+
+  const t = 0.35;
+  const base = add(p, mul(v, t));
+
+  const arrowSize = 22;
+  const tip = add(base, mul(along, arrowSize));
+  const left = add(base, mul(perpVec, arrowSize * 0.5));
+  const right = add(base, mul(mul(perpVec, -1), arrowSize * 0.5));
+
+  el("polygon", {
+    points: `${tip.x},${tip.y} ${left.x},${left.y} ${right.x},${right.y}`,
+    fill: "#7aa2ff",
+    stroke: "rgba(232,238,252,0.3)",
+    "stroke-width": 1.5
+  }, g);
+
+  return g;
+}
+
+/* --------------------- Scenarios --------------------- */
+function scenarioSharedSideNoOverlap() {
+  const padding = 80;
+  const minX = padding, maxX = 1000 - padding, minY = padding, maxY = 520 - padding;
+
+  // Generate shared side AB that's fairly horizontal and centered
+  const A = {x: rnd(minX + 150, minX + 250), y: rnd(minY + 180, maxY - 180)};
+  const B = {x: rnd(maxX - 250, maxX - 150), y: A.y + rnd(-30, 30)};
+
+  // Generate point C for first triangle
+  let C;
+  for (let attempts = 0; attempts < 50; attempts++) {
+    C = {x: rnd(A.x + 50, B.x - 50), y: rnd(minY + 50, A.y - 50)};
+    const triangle = [A, B, C];
+    if (isTriangleReadable(triangle) &&
+        distance(A, C) > 100 &&
+        distance(B, C) > 100) {
+      break;
+    }
+  }
+
+  if (!C) {
+    C = {x: (A.x + B.x) / 2, y: A.y - 150};
+  }
+
+  // Create D as a reflection of C across line AB (guarantees true congruence and matching angles)
+  let D = reflectPointAcrossLine(C, A, B);
+
+  // Ensure triangles don't overlap too much
+  const centroid1 = centroid([A, B, C]);
+  const centroid2 = centroid([A, B, D]);
+  const separation = distance(centroid1, centroid2);
+
+  // If triangles are too close, adjust D
+  if (separation < 100) {
+    // Reflect C across AB more strongly
+    const v = vec(A, C);
+    const ABvec = vec(A, B);
+    const n = norm(perp(ABvec));
+    const dotProduct = dot(v, n);
+    D.x = C.x - 3 * dotProduct * n.x;
+    D.y = C.y - 3 * dotProduct * n.y;
+  }
+
+  // Ensure D is in bounds
+  if (!inBounds(D, padding)) {
+    D.x = clamp(D.x, padding, 1000 - padding);
+    D.y = clamp(D.y, padding, 520 - padding);
+  }
+
+  const tri1 = [A, B, C];
+  const tri2 = [A, B, D];
+
+  const hasParallel = Math.random() < 0.75;
+  let parallelSides = null;
+
+  if (hasParallel) {
+    // Try to make AC parallel to BD
+    const angleAC = Math.atan2(C.y - A.y, C.x - A.x);
+    const angleBD = Math.atan2(D.y - B.y, D.x - B.x);
+    const angleDiff = Math.abs(angleAC - angleBD) % Math.PI;
+
+    if (angleDiff < 0.087 || Math.abs(angleDiff - Math.PI) < 0.087) {
+      parallelSides = [[A, C], [B, D]];
+    }
+  }
+
+  return {
+    tri1: tri1,
+    tri2: tri2,
+    extras: {
+      type: "shared",
+      overlap: false,
+      sharedEdge: [0, 1],
+      parallel: hasParallel && parallelSides !== null,
+      parallelSides: parallelSides
+    }
+  };
+}
+
+function scenarioSharedSideOverlap() {
+  const padding = 80;
+  const minX = padding, maxX = 1000 - padding, minY = padding, maxY = 520 - padding;
+
+  const A = {x: rnd(minX + 150, minX + 250), y: rnd(minY + 180, maxY - 180)};
+  const B = {x: rnd(maxX - 250, maxX - 150), y: A.y + rnd(-30, 30)};
+
+  let C;
+  for (let attempts = 0; attempts < 50; attempts++) {
+    C = {x: rnd(A.x + 50, B.x - 50), y: rnd(minY + 100, maxY - 100)};
+    const triangle = [A, B, C];
+    if (isTriangleReadable(triangle) &&
+        distance(A, C) > 80 &&
+        distance(B, C) > 80) {
+      break;
+    }
+  }
+
+  if (!C) {
+    C = {x: (A.x + B.x) / 2, y: A.y - 120};
+  }
+
+  // Create D such that triangle ABD ≅ triangle ABC with overlap
+  const D = createCongruentTriangle(A, B, C, true);
+
+  // For overlap, ensure D is on the same side of AB as C but shifted
+  const centroid1 = centroid([A, B, C]);
+  const centroid2 = centroid([A, B, D]);
+  const separation = distance(centroid1, centroid2);
+
+  // Ensure some overlap but not complete overlap
+  if (separation > 200 || separation < 30) {
+    // Adjust D to be closer to C but not identical (NOTE: this can slightly disturb congruence visually;
+    // our generator will now refuse any "lying" congruence marks anyway.)
+    const factor = 0.3 + Math.random() * 0.4; // 0.3 to 0.7
+    D.x = C.x * factor + D.x * (1 - factor);
+    D.y = C.y * factor + D.y * (1 - factor);
+  }
+
+  const tri1 = [A, B, C];
+  const tri2 = [A, B, D];
+
+  const hasParallel = Math.random() < 0.75;
+
+  return {
+    tri1: tri1,
+    tri2: tri2,
+    extras: {
+      type: "shared",
+      overlap: true,
+      sharedEdge: [0, 1],
+      parallel: hasParallel,
+      parallelSides: hasParallel ? [[A, C], [B, D]] : null
+    }
+  };
+}
+
+function scenarioSeparate() {
+  // Build BIG, readable triangles so students can actually see the markings.
+  const padding = 80;
+  const minX = padding, maxX = 1000 - padding, minY = padding, maxY = 520 - padding;
+  const midX = (minX + maxX) / 2;
+
+  // Left half: generate a large readable triangle
+  const leftBox = { xMin: minX + 30, xMax: midX - 70, yMin: minY + 30, yMax: maxY - 30 };
+  const tri1 = randomReadableTriangle(leftBox.xMin, leftBox.xMax, leftBox.yMin, leftBox.yMax, 150);
+
+  // Make tri2 congruent via rotation + translation (NO scaling).
+  const c1 = centroid(tri1);
+  const rot = rnd(-Math.PI * 0.55, Math.PI * 0.55);
+  let tri2 = tri1.map(p => rotateAround(p, c1, rot));
+
+  // Translate to right half with a little vertical jitter
+  const targetCx = midX + (maxX - midX) * 0.55;
+  const targetCy = c1.y + rnd(-30, 30);
+  const c2 = centroid(tri2);
+  tri2 = translateTri(tri2, targetCx - c2.x, targetCy - c2.y);
+
+  // Ensure all points are in bounds; if not, use a known-good fallback.
+  const allPoints = [...tri1, ...tri2];
+  const allInBounds = allPoints.every(p => inBounds(p, padding));
+  if (!allInBounds) {
+    return {
+      tri1: [
+        {x: 220, y: 420},
+        {x: 430, y: 160},
+        {x: 160, y: 210}
+      ],
+      tri2: [
+        {x: 740, y: 420},
+        {x: 950, y: 160},
+        {x: 680, y: 210}
+      ],
+      extras: { type: "separate", parallel: false }
+    };
+  }
+
+  return {
+    tri1,
+    tri2,
+    extras: {
+      type: "separate",
+      parallel: false
+    }
+  };
+}
+
+function scenarioVerticalAngles() {
+  // Vertical angles scene: keep triangles readable and keep the intersection angle ≤ 120°.
+  const padding = 100;
+  const O = {x: 500, y: 260};
+
+  // Build two intersecting lines with a controlled angle between them.
+  // delta in [45°, 120°] ensures the vertical angles are not too wide/skinny.
+  for (let k = 0; k < 120; k++) {
+    const angle1 = rnd(0, Math.PI);
+    const delta = rnd(Math.PI * 0.25, Math.PI * (2/3)); // 45° .. 120°
+    const angle2 = angle1 + delta;
+
+    const dist1 = 210 + Math.random() * 60;
+    const dist2 = 210 + Math.random() * 60;
+
+    const A = {x: O.x + dist1 * Math.cos(angle1), y: O.y + dist1 * Math.sin(angle1)};
+    const B = {x: O.x - dist1 * Math.cos(angle1), y: O.y - dist1 * Math.sin(angle1)};
+    const C = {x: O.x + dist2 * Math.cos(angle2), y: O.y + dist2 * Math.sin(angle2)};
+    const D = {x: O.x - dist2 * Math.cos(angle2), y: O.y - dist2 * Math.sin(angle2)};
+
+    // IMPORTANT: order tri2 so vertex indices correspond: A↔B, O↔O, C↔D
+    const tri1 = [A, O, C];
+    const tri2 = [B, O, D];
+
+    const allPoints = [A, B, C, D, O];
+    if (!allPoints.every(p => inBounds(p, padding))) continue;
+    if (!isTriangleReadable(tri1) || !isTriangleReadable(tri2)) continue;
+
+    const hasParallel = Math.random() < 0.75;
+    return {
+      tri1,
+      tri2,
+      extras: {
+        type: "vertical",
+        center: O,
+        lines: [[A, B], [C, D]],
+        parallel: hasParallel,
+        parallelSides: hasParallel ? [[A, C], [B, D]] : null
+      }
+    };
+  }
+
+  // Fallback (still readable)
+  const A = {x: 720, y: 160};
+  const B = {x: 280, y: 360};
+  const C = {x: 720, y: 360};
+  const D = {x: 280, y: 160};
+  const tri1 = [A, O, C];
+  const tri2 = [B, O, D];
+  return {
+    tri1,
+    tri2,
+    extras: {
+      type: "vertical",
+      center: O,
+      lines: [[A, B], [C, D]],
+      parallel: false,
+      parallelSides: null
+    }
+  };
+}
+
+function scenarioRightTrianglesSeparate() {
+  const padding = 80;
+  const minX = padding, maxX = 1000 - padding, minY = padding, maxY = 520 - padding;
+  const midY = (minY + maxY) / 2;
+
+  const A = {x: minX + 200, y: midY + 150};
+  const B = {x: A.x + 180, y: midY + 150};
+  const C = {x: A.x, y: midY - 150};
+
+  const D = {x: maxX - 380, y: midY + 150};
+  const E = {x: D.x + 180, y: midY + 150};
+  const F = {x: D.x, y: midY - 150};
+
+  return {
+    tri1: [A, B, C],
+    tri2: [D, E, F],
+    extras: {
+      type: "rightSeparate",
+      parallel: false
+    }
+  };
+}
+
+/* ============================================================
+   TRUTHFUL MARKS PATCH:
+   - Find best vertex correspondence between tri1 and tri2
+   - Only draw congruence marks (side/angle) if they are TRUE
+   - If a requested mark would be false, regenerate the scene
+   ============================================================ */
+
+function angleAtVertex(T, v){
+  const idx = [0,1,2].filter(i => i !== v);
+  return angleAt(T[idx[0]], T[v], T[idx[1]]);
+}
+function sideLen(T, i, j){
+  return distance(T[i], T[j]);
+}
+function permute3(){
+  return [
+    [0,1,2],
+    [0,2,1],
+    [1,0,2],
+    [1,2,0],
+    [2,0,1],
+    [2,1,0],
+  ];
+}
+// Best correspondence tri1 index -> tri2 index by minimizing side-length mismatch
+function bestVertexMap(tri1, tri2){
+  const perms = permute3();
+  let best = perms[0];
+  let bestErr = Infinity;
+
+  for (const p of perms){
+    const e01 = Math.abs(sideLen(tri1,0,1) - sideLen(tri2,p[0],p[1]));
+    const e12 = Math.abs(sideLen(tri1,1,2) - sideLen(tri2,p[1],p[2]));
+    const e20 = Math.abs(sideLen(tri1,2,0) - sideLen(tri2,p[2],p[0]));
+    const err = e01 + e12 + e20;
+    if (err < bestErr){
+      bestErr = err;
+      best = p;
+    }
+  }
+  return best; // map2[i] = tri2 index corresponding to tri1 vertex i
+}
+function nearlyEqual(a, b, tol){
+  return Math.abs(a - b) <= tol;
+}
+
+function edgesEqual(e1, e2) {
+  return (e1[0]===e2[0] && e1[1]===e2[1]) || (e1[0]===e2[1] && e1[1]===e2[0]);
+}
+function normalizeEdge(i,j){ return i<j ? [i,j] : [j,i]; }
+
+function pointNear(p, q, eps=1.0){
+  return Math.hypot(p.x-q.x, p.y-q.y) <= eps;
+}
+
+function findEdgeIndexByPoints(tri, P, Q, eps=1.0){
+  for (let i=0;i<3;i++){
+    const j=(i+1)%3;
+    const a=tri[i], b=tri[j];
+    if ((pointNear(a,P,eps) && pointNear(b,Q,eps)) || (pointNear(a,Q,eps) && pointNear(b,P,eps))) {
+      return normalizeEdge(i,j);
+    }
+  }
+  return null;
+}
+
+function computeValidAnswers(sc, marks, map2){
+  const tri1 = sc.tri1, tri2 = sc.tri2;
+  const v2 = (v)=> map2[v];
+
+  // ---- GIVEN congruences from marks ----
+  const sideByStyle = new Map(); // style -> {e1:[i,j], e2:[i,j]}
+  for (const m of marks){
+    if (m.kind !== "side") continue;
+    const entry = sideByStyle.get(m.style) ?? {};
+    if (m.tri === 1) entry.e1 = normalizeEdge(m.a, m.b);
+    if (m.tri === 2) entry.e2 = normalizeEdge(m.a, m.b);
+    sideByStyle.set(m.style, entry);
+  }
+
+  const givenSidePairs = [];
+  for (const [style, entry] of sideByStyle.entries()){
+    if (entry.e1 && entry.e2) givenSidePairs.push({ e1: entry.e1, e2: entry.e2, style });
+  }
+
+  // Add shared/reflexive side as "given"
+  if (sc.extras.type === "shared" && sc.extras.sharedEdge){
+    const e1 = normalizeEdge(sc.extras.sharedEdge[0], sc.extras.sharedEdge[1]);
+    const e2 = normalizeEdge(v2(e1[0]), v2(e1[1]));
+    givenSidePairs.push({ e1, e2, style: "shared" });
+  }
+
+  // Angles: style -> vertex in each triangle
+  const angleByStyle = new Map(); // style -> {v1, v2}
+  for (const m of marks){
+    if (m.kind !== "angle") continue;
+    const entry = angleByStyle.get(m.style) ?? {};
+    if (m.tri === 1) entry.v1 = m.v;
+    if (m.tri === 2) entry.v2 = m.v;
+    angleByStyle.set(m.style, entry);
+  }
+
+  const givenAnglePairs = [];
+  for (const [style, entry] of angleByStyle.entries()){
+    if (entry.v1!=null && entry.v2!=null){
+      givenAnglePairs.push({ v1: entry.v1, v2: entry.v2, style });
+    }
+  }
+
+  // Right angles
+  const rightV1 = new Set();
+  const rightV2 = new Set();
+  for (const m of marks){
+    if (m.kind !== "right") continue;
+    if (m.tri === 1) rightV1.add(m.v);
+    if (m.tri === 2) rightV2.add(m.v);
+  }
+
+  // Vertices where a right angle is *explicitly proven* (right-angle box shown in BOTH triangles at corresponding vertices)
+  const provenRightAt = new Set();
+  for (let v = 0; v < 3; v++){
+    if (rightV1.has(v) && rightV2.has(v2(v))) provenRightAt.add(v);
+  }
+
+  // ---- INFERRED angle congruences allowed by your game rules ----
+  const inferredAngleAt = new Set();
+
+  // (a) Vertical angles: intersection vertex is index 1 in your vertical scenario triangles ([A,O,C] and [B,O,D])
+  if (sc.extras.type === "vertical"){
+    inferredAngleAt.add(1);
+  }
+
+  // (b) Right angles: if BOTH triangles have a right box at corresponding vertices
+  for (let v=0; v<3; v++){
+    if (rightV1.has(v) && rightV2.has(v2(v))) inferredAngleAt.add(v);
+  }
+
+  // (c) Parallel arrows: only infer angles at endpoints of the parallel-marked side,
+  // but ONLY if the parallel-marked side exists in BOTH triangles and matches the vertex map.
+  if (sc.extras.parallel === true && sc.extras.parallelSides){
+    const [seg1, seg2] = sc.extras.parallelSides; // each is [P,Q]
+    const e1 = findEdgeIndexByPoints(tri1, seg1[0], seg1[1], 2.0);
+    const e2 = findEdgeIndexByPoints(tri2, seg2[0], seg2[1], 2.0);
+
+    if (e1 && e2){
+      const mapped = normalizeEdge(v2(e1[0]), v2(e1[1]));
+      if (edgesEqual(mapped, e2)){
+        inferredAngleAt.add(e1[0]);
+        inferredAngleAt.add(e1[1]);
+      }
+    }
+  }
+
+  function angleCongruentAtVertex(v1){
+    if (inferredAngleAt.has(v1)) return true;
+    return givenAnglePairs.some(p => p.v1 === v1 && p.v2 === v2(v1));
+  }
+
+  function hasSidePair(edge1){
+    const mapped = normalizeEdge(v2(edge1[0]), v2(edge1[1]));
+    return givenSidePairs.some(p => edgesEqual(p.e1, edge1) && edgesEqual(p.e2, mapped));
+  }
+
+  const givenEdges1 = [];
+  for (const p of givenSidePairs){
+    const mapped = normalizeEdge(v2(p.e1[0]), v2(p.e1[1]));
+    if (edgesEqual(mapped, p.e2)) givenEdges1.push(p.e1);
+  }
+
+  // ---- TEST criteria ----
+  const answers = new Set();
+
+  // SSS
+  const allEdges = [normalizeEdge(0,1), normalizeEdge(1,2), normalizeEdge(0,2)];
+  if (allEdges.every(e => hasSidePair(e))) answers.add("SSS");
+
+  // SAS
+  for (let v=0; v<3; v++){
+    const others = [0,1,2].filter(x=>x!==v);
+    const eA = normalizeEdge(v, others[0]);
+    const eB = normalizeEdge(v, others[1]);
+    if (hasSidePair(eA) && hasSidePair(eB) && angleCongruentAtVertex(v)) {
+      answers.add("SAS");
+    }
+  }
+
+  // ASA / AAS
+  const okAngleVertices = [];
+  for (let v=0; v<3; v++){
+    if (angleCongruentAtVertex(v)) okAngleVertices.push(v);
+  }
+
+  for (let a=0; a<okAngleVertices.length; a++){
+    for (let b=a+1; b<okAngleVertices.length; b++){
+      const vA = okAngleVertices[a];
+      const vB = okAngleVertices[b];
+      const included = normalizeEdge(vA, vB);
+
+      for (const e of givenEdges1){
+        if (!hasSidePair(e)) continue;
+        if (edgesEqual(e, included)) answers.add("ASA");
+        else answers.add("AAS");
+      }
+    }
+  }
+
+  // HL
+  for (let v=0; v<3; v++){
+    if (!provenRightAt.has(v)) continue; // must be explicitly proven right angle (right-angle box)
+    const others = [0,1,2].filter(x=>x!==v);
+    const hyp = normalizeEdge(others[0], others[1]);
+    if (!hasSidePair(hyp)) continue;
+    const leg1 = normalizeEdge(v, others[0]);
+    const leg2 = normalizeEdge(v, others[1]);
+    if (hasSidePair(leg1) || hasSidePair(leg2)) answers.add("HL");
+  }
+
+  if (answers.size === 0) answers.add("Can't Prove");
+  if (answers.size > 1 && answers.has("Can't Prove")) answers.delete("Can't Prove");
+
+  return [...answers];
+}
+
+
+
+/* --------------------- Problem Generator --------------------- */
+function makeProblem() {
+  // Try multiple times to avoid “lying” congruence marks.
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const allowOverlap = overlapToggle.checked;
+
+    const sceneType = pick(["shared", "vertical", "separate", "right", "shared", "vertical", "separate"]);
+
+    let sc;
+    if (sceneType === "right") {
+      sc = scenarioRightTrianglesSeparate();
+    } else if (sceneType === "shared") {
+      sc = allowOverlap && Math.random() < 0.5
+        ? scenarioSharedSideOverlap()
+        : scenarioSharedSideNoOverlap();
+    } else if (sceneType === "vertical") {
+      sc = scenarioVerticalAngles();
+    } else {
+      sc = scenarioSeparate();
+    }
+
+    const isVertical = sc.extras.type === "vertical";
+    const isShared   = sc.extras.type === "shared";
+    const isRight    = sc.extras.type === "rightSeparate";
+    const hasParallel = sc.extras.parallel === true;
+
+    // --- NEW: compute best vertex correspondence tri1 -> tri2 ---
+    const map2 = bestVertexMap(sc.tri1, sc.tri2);
+    const v2 = (v) => map2[v]; // tri1 vertex index -> tri2 vertex index
+
+    let congruenceType;
+    if (isRight) {
+      congruenceType = "HL";
+    } else if (Math.random() < 0.2 && !isShared) {
+      congruenceType = "ambiguous";
+    } else {
+      if (isShared && Math.random() < 0.5) {
+        congruenceType = "SAS";
+      } else {
+        congruenceType = pick(["SSS", "SAS", "ASA", "AAS"]);
+      }
+    }
+
+    const marks = [];
+    let possibleAnswers = [];
+    let invalid = false;
+
+    // For shared side suppression: sharedEdge is defined in tri1 indices.
+    const sharedKey1 = (isShared && sc.extras.sharedEdge) ? sc.extras.sharedEdge.slice().sort().join("-") : null;
+
+    function markSidePair(i1, j1, tickStyle) {
+      const i2 = v2(i1), j2 = v2(j1);
+
+      // Don’t draw ticks on the shared side (still counts as congruent by reflexive property)
+      const key1 = [i1, j1].slice().sort().join("-");
+      if (isShared && sharedKey1 && key1 === sharedKey1) return;
+
+      // Truth check: verify the mapped sides are actually congruent
+      const L1 = sideLen(sc.tri1, i1, j1);
+      const L2 = sideLen(sc.tri2, i2, j2);
+      const tol = Math.max(L1, L2) * 0.03; // 3% tolerance
+      if (!nearlyEqual(L1, L2, tol)) {
+        invalid = true;
+        return;
+      }
+
+      marks.push({kind:"side", tri:1, a:i1, b:j1, style:tickStyle});
+      marks.push({kind:"side", tri:2, a:i2, b:j2, style:tickStyle});
+    }
+
+    function markAnglePair(v1, arcStyle) {
+      const vv2 = v2(v1);
+
+      // Keep your “don’t mark the intersection angle” rule for vertical scenes
+      if (isVertical && v1 === 1 && vv2 === 1) return;
+
+      // Truth check: verify the mapped angles are actually congruent
+      const A1 = angleAtVertex(sc.tri1, v1);
+      const A2 = angleAtVertex(sc.tri2, vv2);
+      if (!nearlyEqual(A1, A2, 2.5)) { // degrees tolerance
+        invalid = true;
+        return;
+      }
+
+      marks.push({kind:"angle", tri:1, v:v1, style:arcStyle});
+      marks.push({kind:"angle", tri:2, v:vv2, style:arcStyle});
+    }
+
+    function markRight(tri, v, a, b) {
+      marks.push({kind:"right", tri, v, a, b});
+    }
+
+    // --- Generate marks using tri1 indices; tri2 indices are derived by map2 ---
+    if (congruenceType === "SSS") {
+      markSidePair(0,1, 1);
+      markSidePair(1,2, 2);
+      markSidePair(2,0, 3);
+      possibleAnswers = ["SSS"];
+    }
+    else if (congruenceType === "SAS") {
+      if (isVertical) {
+        markSidePair(0,1, 1);
+        markSidePair(1,2, 2);
+        // Included angle at intersection is inferred (vertical angles) in those scenes
+        possibleAnswers = ["SAS"];
+      } else if (isShared) {
+        // Two non-shared sides + included angle at shared vertex
+        markSidePair(0,2, 1);
+        markAnglePair(0, 1);
+        possibleAnswers = ["SAS"];
+      } else {
+        markSidePair(0,1, 1);
+        markSidePair(1,2, 2);
+        markAnglePair(1, 1);
+        possibleAnswers = ["SAS"];
+      }
+    }
+    else if (congruenceType === "ASA") {
+      if (isVertical) {
+        // One marked angle + inferred vertical angles, with included side
+        markAnglePair(0, 1);
+        markSidePair(0,1, 1);
+        possibleAnswers = ["ASA"];
+      } else {
+        markAnglePair(0, 1);
+        markAnglePair(1, 2);
+        markSidePair(0,1, 1);
+        possibleAnswers = ["ASA"];
+        if (isShared || hasParallel) possibleAnswers.push("AAS");
+      }
+    }
+    else if (congruenceType === "AAS") {
+      if (isVertical) {
+        markAnglePair(0, 1);
+        markSidePair(1,2, 1);
+        possibleAnswers = ["AAS"];
+      } else {
+        markAnglePair(0, 1);
+        markAnglePair(1, 2);
+        markSidePair(1,2, 1);
+        possibleAnswers = ["AAS"];
+        if (isShared || hasParallel) possibleAnswers.push("ASA");
+      }
+    }
+    else if (congruenceType === "HL") {
+      markRight(1, 0, 1, 2);
+      markRight(2, 0, 1, 2);
+      marks.push({kind:"side", tri:1, a:1, b:2, style:2});
+      marks.push({kind:"side", tri:2, a:1, b:2, style:2});
+      marks.push({kind:"side", tri:1, a:0, b:1, style:1});
+      marks.push({kind:"side", tri:2, a:0, b:1, style:1});
+      possibleAnswers = ["HL"];
+    }
+    else if (congruenceType === "ambiguous") {
+      const mode = pick(["SSA", "AAA"]);
+      if (mode === "SSA") {
+        markSidePair(0,1, 1);
+        markSidePair(1,2, 2);
+        markAnglePair(0, 1);
+        possibleAnswers = ["Can't Prove"];
+      } else {
+        markAnglePair(0, 1);
+        markAnglePair(1, 2);
+        markAnglePair(2, 3);
+        possibleAnswers = ["Can't Prove"];
+      }
+    }
+
+    // If we ever tried to place a mark that was false, retry a new scene.
+    if (invalid) continue;
+
+    possibleAnswers = computeValidAnswers(sc, marks, map2);
+
+    // If we intended a proof-type but the marks don't actually prove it, regenerate.
+    if (congruenceType !== "ambiguous" && possibleAnswers.includes("Can't Prove")) {
+      continue;
+    }
+
+    const meta = {
+      answers: possibleAnswers,
+      scenario: sc.extras.type,
+      overlap: !!sc.extras.overlap,
+      parallel: hasParallel,
+      explain: explanationFor(possibleAnswers, sc.extras.type, congruenceType, hasParallel, isShared)
+    };
+
+    return { ...sc, marks, meta };  }
+
+  // Hard fallback: safe “Can't Prove” with no marks.
+  const sc = scenarioSeparate();
+  return {
+    ...sc,
+    marks: [],
+    meta: {
+      answers: ["Can't Prove"],
+      scenario: sc.extras.type,
+      overlap: !!sc.extras.overlap,
+      parallel: false,
+      explain: "No consistent congruence markings could be generated, so congruence cannot be proven."
+    }
+  };
+}
+
+function explanationFor(answers, scen, congruenceType, hasParallel, isShared) {
+  if (!answers || answers.length === 0) {
+    return "The given information is not enough to prove congruence, so choose Can't Prove.";
+  }
+  if (answers.includes("Can't Prove")) {
+    return "The given information is ambiguous (SSA) or shows only angles (AAA), so congruence cannot be proven.";
+  }
+
+  if (answers.length === 1) {
+    const ans = answers[0];
+    switch(ans){
+      case "SSS":
+        return hasParallel
+          ? "All three pairs of corresponding sides are congruent → SSS. (Note: The parallel lines create congruent alternate interior angles, but they are not needed for SSS.)"
+          : "All three pairs of corresponding sides are congruent → SSS.";
+      case "SAS":
+        if (scen === "vertical") {
+          return "Two pairs of corresponding sides are congruent, and the included angles at the intersection are vertical angles (so they’re congruent) → SAS.";
+        } else if (isShared) {
+          return "Two pairs of corresponding sides are congruent (the non-shared sides), and the included angles at the shared vertices are congruent → SAS. The shared side is automatically congruent.";
+        }
+        return hasParallel
+          ? "Two pairs of corresponding sides and the included angle are congruent → SAS. (Note: The parallel lines create congruent alternate interior angles.)"
+          : "Two pairs of corresponding sides and the included angle are congruent → SAS.";
+      case "ASA":
+        if (scen === "vertical") {
+          return "One pair of angles is marked congruent, and the angles at the intersection are vertical angles (so they’re congruent). With the included side, this is ASA.";
+        }
+        return hasParallel
+          ? "Two pairs of corresponding angles and the included side are congruent → ASA. Notice the parallel lines create congruent alternate interior angles."
+          : "Two pairs of corresponding angles and the included side are congruent → ASA.";
+      case "AAS":
+        if (scen === "vertical") {
+          return "One pair of angles is marked congruent, and the angles at the intersection are vertical angles (so they’re congruent). With a non-included side, this is AAS.";
+        }
+        return hasParallel
+          ? "Two pairs of corresponding angles and a non-included side are congruent → AAS. Notice the parallel lines create congruent alternate interior angles."
+          : "Two pairs of corresponding angles and a non-included side are congruent → AAS.";
+      case "HL":
+        return "Right triangles with congruent hypotenuse and one leg → HL.";
+    }
+  } else {
+    const ansStr = answers.join(" or ");
+    if (scen === "vertical") {
+      return `Multiple proofs work! Valid answers: ${ansStr}. Students should identify that vertical angles are congruent.`;
+    } else if (scen === "shared") {
+      return `Multiple proofs work! Valid answers: ${ansStr}. (The shared side is automatically congruent.)`;
+    } else {
+      return `Multiple proofs work! Valid answers: ${ansStr}.`;
+    }
+  }
+}
+
+/* --------------------- Drawing --------------------- */
+function drawProblem(prob) {
+  clearSVG();
+  el("rect",{x:0,y:0,width:1000,height:520,fill:"transparent"});
+
+  const gMain = group({});
+
+  const tri1 = prob.tri1, tri2 = prob.tri2;
+
+  poly(tri1, {fill:"rgba(122,162,255,.12)"}, gMain);
+  poly(tri2, {fill:"rgba(67,209,158,.10)"}, gMain);
+
+  if (prob.extras.parallel && prob.extras.parallelSides) {
+    const [side1, side2] = prob.extras.parallelSides;
+    markParallelLines(side1[0], side1[1], {}, gMain);
+    markParallelLines(side2[0], side2[1], {}, gMain);
+  }
+
+  if (prob.extras.type === "shared") {
+    line(tri1[0], tri1[1], {w: 10, opacity: 0.22}, gMain);
+    line(tri1[0], tri1[1], {w: 4, opacity: 1}, gMain);
+  }
+
+  for (let i = 0; i < 3; i++) {
+    line(tri1[i], tri1[(i+1)%3], {w: 4}, gMain);
+    line(tri2[i], tri2[(i+1)%3], {w: 4}, gMain);
+  }
+
+  for (const p of tri1.concat(tri2)) {
+    el("circle", {cx:p.x, cy:p.y, r: 4.6, fill:"rgba(232,238,252,.95)"}, gMain);
+  }
+
+  for (const m of prob.marks) {
+    const T = (m.tri === 1) ? tri1 : tri2;
+    if (m.kind === "side") {
+      markSideTicks(T[m.a], T[m.b], m.style, {}, gMain);
+    } else if (m.kind === "angle") {
+      let iA, iB;
+      if (m.v === 0) { iA = 1; iB = 2; }
+      if (m.v === 1) { iA = 0; iB = 2; }
+      if (m.v === 2) { iA = 0; iB = 1; }
+      markAngleArc(T[m.v], T[iA], T[iB], m.style, {}, gMain);
+    } else if (m.kind === "right") {
+      markRightAngle(T[m.v], T[m.a], T[m.b], {}, gMain);
+    }
+  }
+}
+
+/* --------------------- UI --------------------- */
+function setFeedback(kind, title, body) {
+  feedbackBox.classList.remove("good","bad");
+  if (kind) feedbackBox.classList.add(kind);
+  feedbackBox.innerHTML = `
+    <div style="font-weight:850; margin-bottom:6px;">${title}</div>
+    <div class="tiny">${body}</div>
+  `;
+}
+
+function updateScoreDisplay() {
+  const percentage = total > 0 ? ((score / total) * 100).toFixed(1) : "0";
+  scorePill.textContent = `Score: ${score}/${total} (${percentage}%)`;
+  streakPill.textContent = `Streak: ${currentStreak} (Best: ${highestStreak})`;
+}
+
+function renderChoices() {
+  choicesDiv.innerHTML = "";
+  for (const c of CHOICES) {
+    const b = document.createElement("button");
+    b.textContent = c;
+    b.addEventListener("click", ()=> choose(c));
+    choicesDiv.appendChild(b);
+  }
+}
+
+function lockChoices(lock=true) {
+  for (const btn of choicesDiv.querySelectorAll("button")) btn.disabled = lock;
+}
+
+function choose(choice) {
+  if (answered) return;
+  answered = true;
+  total++;
+
+  const correct = current.meta.answers.includes(choice);
+  const correctAnswers = (current.meta.answers && current.meta.answers.length)
+    ? current.meta.answers.join(" or ")
+    : "Can't Prove";
+
+  if (correct) {
+    score++;
+    currentStreak++;
+    if (currentStreak > highestStreak) highestStreak = currentStreak;
+
+    setFeedback(
+      "good",
+      "✅ Correct",
+      explainToggle.checked
+        ? `Correct answer${current.meta.answers.length > 1 ? "s" : ""}: <b>${correctAnswers}</b><br>${current.meta.explain}`
+        : `Correct answer${current.meta.answers.length > 1 ? "s" : ""}: <b>${correctAnswers}</b>`
+    );
+  } else {
+    currentStreak = 0;
+    setFeedback(
+      "bad",
+      "❌ Not quite",
+      explainToggle.checked
+        ? `Correct answer${current.meta.answers.length > 1 ? "s" : ""}: <b>${correctAnswers}</b><br>${current.meta.explain}`
+        : `Correct answer${current.meta.answers.length > 1 ? "s" : ""}: <b>${correctAnswers}</b>`
+    );
+  }
+
+  updateScoreDisplay();
+  lockChoices(true);
+}
+
+function nextProblem() {
+  answered = false;
+  current = makeProblem();
+  drawProblem(current);
+  lockChoices(false);
+
+  setFeedback("", "Pick an answer:", "Look at the diagram and select the congruence relationship (or <b>Can't Prove</b>).");
+
+  // (Hidden in UI anyway)
+  modePill.textContent = ``;
+}
+
+function resetScore() {
+  score = 0;
+  total = 0;
+  currentStreak = 0;
+  highestStreak = 0;
+  updateScoreDisplay();
+  setFeedback("", "Pick an answer:", "Score reset. Try a new problem!");
+  nextProblem();
+}
+
+/* --------------------- Events --------------------- */
+renderChoices();
+nextBtn.addEventListener("click", nextProblem);
+resetBtn.addEventListener("click", resetScore);
+overlapToggle.addEventListener("change", ()=> { nextProblem(); });
+
+/* --------------------- Start --------------------- */
+nextProblem();
+</script>
+</body>
+</html>
