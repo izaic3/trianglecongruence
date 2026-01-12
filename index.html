@@ -643,7 +643,55 @@ function scenarioRightTrianglesSeparate() {
     tri2: [D, E, F],
     extras: {
       type: "rightSeparate",
-      parallel: false
+      parallel: false,
+      right: true
+    }
+  };
+}
+
+function scenarioRightTrianglesShared() {
+  const padding = 90;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const A = {x: rnd(240, 360), y: rnd(200, 320)};
+    const B = {x: A.x + rnd(220, 280), y: A.y + rnd(-20, 20)};
+    const AB = vec(A, B);
+    const n = norm(perp(AB));
+    const legLen = rnd(140, 190);
+    const C = add(A, mul(n, legLen));
+    const D = add(A, mul(n, -legLen));
+
+    const tri1 = [A, B, C];
+    const tri2 = [A, B, D];
+
+    if (![A, B, C, D].every(p => inBounds(p, padding))) continue;
+    if (!isTriangleReadable(tri1) || !isTriangleReadable(tri2)) continue;
+
+    return {
+      tri1,
+      tri2,
+      extras: {
+        type: "rightShared",
+        sharedEdge: [0, 1],
+        overlap: false,
+        parallel: false,
+        right: true
+      }
+    };
+  }
+
+  const A = {x: 260, y: 300};
+  const B = {x: 520, y: 300};
+  const C = {x: 260, y: 140};
+  const D = {x: 260, y: 460};
+  return {
+    tri1: [A, B, C],
+    tri2: [A, B, D],
+    extras: {
+      type: "rightShared",
+      sharedEdge: [0, 1],
+      overlap: false,
+      parallel: false,
+      right: true
     }
   };
 }
@@ -703,6 +751,25 @@ function pointNear(p, q, eps=1.0){
   return Math.hypot(p.x-q.x, p.y-q.y) <= eps;
 }
 
+function alignSharedVertexMap(tri1, tri2, map2){
+  const used = new Set();
+  const forced = new Array(3).fill(null);
+
+  for (let i = 0; i < 3; i++){
+    for (let j = 0; j < 3; j++){
+      if (used.has(j)) continue;
+      if (pointNear(tri1[i], tri2[j], 0.5)){
+        forced[i] = j;
+        used.add(j);
+        break;
+      }
+    }
+  }
+
+  if (forced.every(v => v !== null)) return forced;
+  return map2;
+}
+
 function findEdgeIndexByPoints(tri, P, Q, eps=1.0){
   for (let i=0;i<3;i++){
     const j=(i+1)%3;
@@ -734,7 +801,7 @@ function computeValidAnswers(sc, marks, map2){
   }
 
   // Add shared/reflexive side as "given"
-  if (sc.extras.type === "shared" && sc.extras.sharedEdge){
+  if (sc.extras.sharedEdge){
     const e1 = normalizeEdge(sc.extras.sharedEdge[0], sc.extras.sharedEdge[1]);
     const e2 = normalizeEdge(v2(e1[0]), v2(e1[1]));
     givenSidePairs.push({ e1, e2, style: "shared" });
@@ -883,7 +950,9 @@ function makeProblem() {
 
     let sc;
     if (sceneType === "right") {
-      sc = scenarioRightTrianglesSeparate();
+      sc = Math.random() < 0.45
+        ? scenarioRightTrianglesShared()
+        : scenarioRightTrianglesSeparate();
     } else if (sceneType === "shared") {
       sc = allowOverlap && Math.random() < 0.5
         ? scenarioSharedSideOverlap()
@@ -895,12 +964,15 @@ function makeProblem() {
     }
 
     const isVertical = sc.extras.type === "vertical";
-    const isShared   = sc.extras.type === "shared";
-    const isRight    = sc.extras.type === "rightSeparate";
+    const isShared   = !!sc.extras.sharedEdge;
+    const isRight    = !!sc.extras.right;
     const hasParallel = sc.extras.parallel === true;
 
     // --- NEW: compute best vertex correspondence tri1 -> tri2 ---
-    const map2 = bestVertexMap(sc.tri1, sc.tri2);
+    let map2 = bestVertexMap(sc.tri1, sc.tri2);
+    if (sc.extras.sharedEdge) {
+      map2 = alignSharedVertexMap(sc.tri1, sc.tri2, map2);
+    }
     const v2 = (v) => map2[v]; // tri1 vertex index -> tri2 vertex index
 
     let congruenceType;
@@ -1020,10 +1092,8 @@ function makeProblem() {
     else if (congruenceType === "HL") {
       markRight(1, 0, 1, 2);
       markRight(2, 0, 1, 2);
-      marks.push({kind:"side", tri:1, a:1, b:2, style:2});
-      marks.push({kind:"side", tri:2, a:1, b:2, style:2});
-      marks.push({kind:"side", tri:1, a:0, b:1, style:1});
-      marks.push({kind:"side", tri:2, a:0, b:1, style:1});
+      markSidePair(1,2, 2);
+      markSidePair(0,1, 1);
       possibleAnswers = ["HL"];
     }
     else if (congruenceType === "ambiguous") {
@@ -1147,9 +1217,10 @@ function drawProblem(prob) {
     markParallelLines(side2[0], side2[1], {}, gMain);
   }
 
-  if (prob.extras.type === "shared") {
-    line(tri1[0], tri1[1], {w: 10, opacity: 0.22}, gMain);
-    line(tri1[0], tri1[1], {w: 4, opacity: 1}, gMain);
+  if (prob.extras.sharedEdge) {
+    const [s1, s2] = prob.extras.sharedEdge;
+    line(tri1[s1], tri1[s2], {w: 10, opacity: 0.22}, gMain);
+    line(tri1[s1], tri1[s2], {w: 4, opacity: 1}, gMain);
   }
 
   for (let i = 0; i < 3; i++) {
@@ -1211,6 +1282,7 @@ function choose(choice) {
   if (answered) return;
   answered = true;
   total++;
+  nextBtn.disabled = false;
 
   const correct = current.meta.answers.includes(choice);
   const correctAnswers = (current.meta.answers && current.meta.answers.length)
@@ -1249,6 +1321,7 @@ function nextProblem() {
   current = makeProblem();
   drawProblem(current);
   lockChoices(false);
+  nextBtn.disabled = true;
 
   setFeedback("", "Pick an answer:", "Look at the diagram and select the congruence relationship (or <b>Can't Prove</b>).");
 
